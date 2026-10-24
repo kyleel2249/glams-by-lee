@@ -1,0 +1,23 @@
+@import '@fontsource/cormorant-garamond/500.css';
+@import '@fontsource/cormorant-garamond/600.css';
+@import '@fontsource-variable/inter';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { background: #F6F0E8; color: #171514; -webkit-text-size-adjust: 100%; }
+  body { font-family: 'Inter Variable', Inter, system-ui, sans-serif; line-height: 1.6; }
+  h1, h2, h3 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; line-height: 1.1; }
+  :focus-visible { outline: 2px solid #8F6F3C; outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+}
+
+@layer components {
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center px-7 text-sm font-medium tracking-wide transition-colors; }
+  .btn-gold { @apply btn bg-gold text-ink hover:bg-gold-soft; }
+  .btn-outline { @apply btn border border-ink text-ink hover:bg-ink hover:text-ivory; }
+  .btn-outline-light { @apply btn border border-ivory/70 text-ivory hover:bg-ivory hover:text-ink; }
+  .field { @apply min-h-[44px] w-full border border-line bg-white px-3 text-sm text-ink placeholder:text-muted; }
+  .badge { @apply inline-block border border-gold-deep px-2 py-0.5 text-xs text-gold-deep; }
+}

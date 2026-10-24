@@ -3,7 +3,7 @@
 Premium wig and hair e-commerce platform for Ghana and international customers.
 Stack: Next.js 15, TypeScript, Tailwind, Supabase (Postgres, Auth, Storage), Paystack, Vercel.
 
-## Status: Phase 1 (foundation) complete
+## Status: Phases 1 and 2 complete (foundation + storefront)
 
 | Area | State |
 |---|---|
@@ -11,7 +11,9 @@ Stack: Next.js 15, TypeScript, Tailwind, Supabase (Postgres, Auth, Storage), Pay
 | Design system and `/design-system` page | Done |
 | Logo set (SVG outlines + PNG, favicon, social) | Done, rebuild with `npm run brand:build` |
 | Payment abstraction + Paystack signature check | Done, unit-tested; not yet connected to checkout |
-| Storefront, cart, checkout, admin, accounts | Phases 2 to 5 |
+| Storefront: home, shop, categories, product pages, Wig Finder, info pages, SEO | Done (Phase 2) |
+| Cart, checkout, orders, Paystack | Phase 3 |
+| Admin dashboard, accounts, wishlist, reviews, shipping tracking | Phases 4 and 5 |
 
 ## Run it
 
@@ -50,4 +52,3 @@ applies every migration and runs `supabase/tests/01_assertions.sql`. Set `DATABA
 WhatsApp number (international format), support hours, contact email, social links, product photography,
 shipping rates and zones, policy text (get legal review), and your own Supabase, Paystack and email credentials.
 Until a setting is filled in, the matching feature stays hidden.
-"# glams-by-lee" 
