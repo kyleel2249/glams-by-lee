@@ -3,7 +3,7 @@
 Premium wig and hair e-commerce platform for Ghana and international customers.
 Stack: Next.js 15, TypeScript, Tailwind, Supabase (Postgres, Auth, Storage), Paystack, Vercel.
 
-## Status: Phases 1 and 2 complete (foundation + storefront)
+## Status: Phases 1 to 3 built (foundation, storefront, bag, checkout, payments)
 
 | Area | State |
 |---|---|
@@ -12,7 +12,7 @@ Stack: Next.js 15, TypeScript, Tailwind, Supabase (Postgres, Auth, Storage), Pay
 | Logo set (SVG outlines + PNG, favicon, social) | Done, rebuild with `npm run brand:build` |
 | Payment abstraction + Paystack signature check | Done, unit-tested; not yet connected to checkout |
 | Storefront: home, shop, categories, product pages, Wig Finder, info pages, SEO | Done (Phase 2) |
-| Cart, checkout, orders, Paystack | Phase 3 |
+| Bag, checkout, order placement, Paystack, webhooks, order page, confirmation email | Built (Phase 3). Needs your Paystack test keys to run end to end; see `docs/PAYMENTS.md` |
 | Admin dashboard, accounts, wishlist, reviews, shipping tracking | Phases 4 and 5 |
 
 ## Run it

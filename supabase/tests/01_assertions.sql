@@ -96,6 +96,99 @@ select assert(expire_unpaid_orders(interval '60 minutes')=1,'one stale order exp
 select assert((select reserved from inventory)=0,'expired order released stock');
 select assert((select status from orders where id='30000000-0000-0000-0000-000000000003')='cancelled','stale order cancelled');
 
+-- ===== place_order (Phase 3) =====
+insert into discount_codes(id,code,discount_type,percentage_off,usage_limit,per_customer_limit)
+ values ('40000000-0000-0000-0000-000000000001','WELCOME10','percentage',10,1,1);
+select adjust_stock('20000000-0000-0000-0000-000000000001', 3, 'received', 'stock for place_order tests', '00000000-0000-0000-0000-0000000000a1');
+-- stock now: on_hand 3, reserved 0
+create temp table po(r jsonb);
+insert into po select place_order(
+  '{"email":"Buyer@Test","currency":"GHS","subtotal_minor":200000,"discount_minor":20000,"shipping_minor":5000,"tax_minor":0,"total_minor":185000,"discount_code_id":"40000000-0000-0000-0000-000000000001","shipping_address":{"country":"GH"},"idempotency_key":"key-1"}'::jsonb,
+  '[{"variant_id":"20000000-0000-0000-0000-000000000001","quantity":2,"unit_price_minor":100000}]'::jsonb);
+select assert((select (r->>'is_new')::boolean from po),'place_order creates a new order');
+select assert((select reserved from inventory)=2,'place_order reserved stock');
+select assert((select count(*) from order_items where order_id=(select (r->>'order_id')::uuid from po))=1,'item snapshot written');
+select assert((select email from orders where idempotency_key='key-1')='buyer@test','email normalised');
+select assert((select count(*) from discount_redemptions where discount_code_id='40000000-0000-0000-0000-000000000001')=1,'discount redeemed');
+
+-- same idempotency key returns the same order and changes nothing
+select assert((select (place_order('{"email":"buyer@test","currency":"GHS","subtotal_minor":200000,"discount_minor":20000,"shipping_minor":5000,"tax_minor":0,"total_minor":185000,"shipping_address":{},"idempotency_key":"key-1"}'::jsonb,
+  '[{"variant_id":"20000000-0000-0000-0000-000000000001","quantity":2,"unit_price_minor":100000}]'::jsonb)->>'is_new')::boolean)=false,'duplicate submission returns existing order');
+select assert((select reserved from inventory)=2,'duplicate submission did not reserve twice');
+
+-- usage limit: a second order cannot reuse the single-use code
+do $$ begin
+  begin perform place_order('{"email":"other@test","currency":"GHS","subtotal_minor":100000,"discount_minor":10000,"shipping_minor":0,"tax_minor":0,"total_minor":90000,"discount_code_id":"40000000-0000-0000-0000-000000000001","shipping_address":{},"idempotency_key":"key-2"}'::jsonb,
+      '[{"variant_id":"20000000-0000-0000-0000-000000000001","quantity":1,"unit_price_minor":100000}]'::jsonb);
+    raise exception 'ASSERTION FAILED: used-up discount accepted';
+  exception when sqlstate 'P0004' then null; end;
+end $$;
+select assert((select count(*) from orders where idempotency_key='key-2')=0 and (select reserved from inventory)=2,'failed discount rolled back the whole order and its stock');
+
+-- price tampering is rejected
+do $$ begin
+  begin perform place_order('{"email":"x@test","currency":"GHS","subtotal_minor":1,"discount_minor":0,"shipping_minor":0,"tax_minor":0,"total_minor":1,"shipping_address":{},"idempotency_key":"key-3"}'::jsonb,
+      '[{"variant_id":"20000000-0000-0000-0000-000000000001","quantity":1,"unit_price_minor":1}]'::jsonb);
+    raise exception 'ASSERTION FAILED: tampered price accepted';
+  exception when sqlstate 'P0003' then null; end;
+end $$;
+
+-- overselling: only 1 unit left (3 on hand, 2 reserved); asking for 2 must fail and leave no order behind
+do $$ begin
+  begin perform place_order('{"email":"y@test","currency":"GHS","subtotal_minor":200000,"discount_minor":0,"shipping_minor":0,"tax_minor":0,"total_minor":200000,"shipping_address":{},"idempotency_key":"key-4"}'::jsonb,
+      '[{"variant_id":"20000000-0000-0000-0000-000000000001","quantity":2,"unit_price_minor":100000}]'::jsonb);
+    raise exception 'ASSERTION FAILED: oversell via place_order';
+  exception when sqlstate 'P0001' then null; end;
+end $$;
+select assert((select count(*) from orders where idempotency_key='key-4')=0,'oversell attempt left no order');
+select assert((select reserved from inventory)=2,'oversell attempt left stock untouched');
+
+-- unpublished product cannot be ordered
+do $$ begin
+  insert into product_variants(id,product_id,sku,price_minor) values ('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','P-2-A',50000);
+  begin perform place_order('{"email":"z@test","currency":"GHS","subtotal_minor":50000,"discount_minor":0,"shipping_minor":0,"tax_minor":0,"total_minor":50000,"shipping_address":{},"idempotency_key":"key-5"}'::jsonb,
+      '[{"variant_id":"20000000-0000-0000-0000-000000000002","quantity":1,"unit_price_minor":50000}]'::jsonb);
+    raise exception 'ASSERTION FAILED: unpublished product ordered';
+  exception when sqlstate 'P0002' then null; end;
+end $$;
+
+-- cancelling the unpaid order frees stock AND the discount redemption
+select cancel_unpaid_order((select (r->>'order_id')::uuid from po));
+select assert((select reserved from inventory where variant_id='20000000-0000-0000-0000-000000000001')=0,'cancel released place_order stock');
+select assert((select count(*) from discount_redemptions)=0,'cancel freed the discount redemption');
+
+-- customers cannot call place_order
+set role authenticated;
+do $$ begin
+  begin perform place_order('{}'::jsonb,'[]'::jsonb);
+    raise exception 'ASSERTION FAILED: customer called place_order';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ===== payment failure (Phase 3) =====
+select adjust_stock('20000000-0000-0000-0000-000000000001', 2, 'received', 'stock for failure tests', '00000000-0000-0000-0000-0000000000a1');
+create temp table po2(r jsonb);
+insert into po2 select place_order('{"email":"f@test","currency":"GHS","subtotal_minor":100000,"discount_minor":0,"shipping_minor":0,"tax_minor":0,"total_minor":100000,"shipping_address":{},"idempotency_key":"key-fail"}'::jsonb,
+  '[{"variant_id":"20000000-0000-0000-0000-000000000001","quantity":1,"unit_price_minor":100000}]'::jsonb);
+insert into payments(order_id,provider,reference,amount_minor,currency) values ((select (r->>'order_id')::uuid from po2),'paystack','ref-fail-1',100000,'GHS');
+select assert(mark_payment_failed('ref-fail-1','declined')='marked_failed','failed payment recorded');
+select assert((select status from orders where id=(select (r->>'order_id')::uuid from po2))='payment_failed','order moved to payment_failed');
+select assert((select status from payments where reference='ref-fail-1')='failed','payment row failed');
+-- a retry with a new reference can still succeed on the same order
+insert into payments(order_id,provider,reference,amount_minor,currency) values ((select (r->>'order_id')::uuid from po2),'paystack','ref-fail-2',100000,'GHS');
+select assert(apply_verified_payment('ref-fail-2','t-retry',100000,'GHS')='paid','order can be paid after an earlier failure');
+select assert(mark_payment_failed('ref-fail-2','late failure webhook')='already_succeeded','a succeeded payment is never downgraded');
+select assert(mark_payment_failed('nope','x')='unknown_reference','unknown reference handled');
+
+-- one email per order and template
+insert into notification_events(order_id,template,recipient) values ((select (r->>'order_id')::uuid from po2),'payment_confirmation','f@test');
+do $$ begin
+  begin insert into notification_events(order_id,template,recipient) values ((select (r->>'order_id')::uuid from po2),'payment_confirmation','f@test');
+    raise exception 'ASSERTION FAILED: duplicate email allowed';
+  exception when unique_violation then null; end;
+end $$;
+
 -- RLS: customer isolation
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b2';
@@ -127,7 +220,7 @@ reset role;
 -- RLS: owner can read orders and audit
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
-select assert((select count(*) from orders)=3, 'owner sees all orders');
+select assert((select count(*) from orders)=5, 'owner sees all orders');
 select assert((select count(*) from products)=2, 'owner sees unpublished products');
 reset role;
 

@@ -24,3 +24,14 @@ export function serverEnv() {
     PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
   });
 }
+
+/** Server only. Narrow accessors so a route needs only the secrets it actually uses. */
+function required(name: string): string {
+  if (typeof window !== 'undefined') throw new Error('Server secrets must not be read in the browser');
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing environment variable: ${name}`);
+  return v;
+}
+export const supabaseServiceKey = () => required('SUPABASE_SERVICE_ROLE_KEY');
+export const paystackSecretKey = () => required('PAYSTACK_SECRET_KEY');
+export const orderLinkSecret = () => required('ORDER_LINK_SECRET');

@@ -112,3 +112,12 @@ export async function getShippingZoneNames(): Promise<string[]> {
   const data = ok(await db.from('shipping_zones').select('name').eq('is_active', true));
   return (data ?? []).map((z: { name: string }) => z.name);
 }
+
+/** Countries the merchant delivers to, from active shipping zones. */
+export async function getDeliveryCountries(): Promise<{ code: string; name: string }[]> {
+  const db = createPublic(); if (!db) return [];
+  const data = ok(await db.from('shipping_zones').select('country_codes').eq('is_active', true));
+  const codes = [...new Set(((data ?? []) as { country_codes: string[] }[]).flatMap((z) => (z.country_codes ?? []).map((c) => c.trim().toUpperCase())))];
+  const names = new Intl.DisplayNames(['en'], { type: 'region' });
+  return codes.map((code) => ({ code, name: names.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name));
+}

@@ -1,7 +1,9 @@
 'use client';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { AVAILABILITY_LABEL, type CatalogVariant } from '@/lib/catalogTypes';
+import { notifyCartChanged } from './BagCount';
 
 type Axis = 'lengthInches' | 'color' | 'density' | 'capSize';
 const AXES: { key: Axis; label: string; fmt?: (v: string | number) => string }[] = [
@@ -20,9 +22,22 @@ export function VariantPicker({ variants, whatsappHref }: { variants: CatalogVar
   });
   const current = useMemo(() => variants.find((v) => axes.every((a) => (sel[a.key] ?? null) === (v[a.key] ?? null))) ?? null, [variants, axes, sel]);
 
+  const [qty, setQty] = useState(1);
+  const [add, setAdd] = useState<{ kind: 'idle' | 'busy' | 'added' | 'error'; message?: string }>({ kind: 'idle' });
+
   if (!variants.length) return <p className="text-sm text-muted">This product has no purchasable options yet.</p>;
   const cur = (current?.currency ?? variants[0].currency) as CurrencyCode;
   const purchasable = current && current.availability !== 'out_of_stock';
+  async function addToBag() {
+    if (!current) return;
+    setAdd({ kind: 'busy' });
+    try {
+      const r = await fetch('/api/cart/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ variantId: current.id, quantity: qty }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setAdd({ kind: 'error', message: d.error ?? 'Could not add to your bag.' }); return; }
+      setAdd({ kind: 'added', message: 'Added to your bag.' }); notifyCartChanged();
+    } catch { setAdd({ kind: 'error', message: 'No connection. Please try again.' }); }
+  }
 
   return (
     <div>
@@ -53,10 +68,19 @@ export function VariantPicker({ variants, whatsappHref }: { variants: CatalogVar
       <p className="mt-5 text-sm" aria-live="polite">
         {current ? <>{AVAILABILITY_LABEL[current.availability]} · SKU {current.sku}</> : 'This combination is not offered.'}
       </p>
-      <button type="button" disabled className="btn-gold mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50" aria-describedby="bag-note">
-        {purchasable ? 'Add to bag' : 'Unavailable'}
-      </button>
-      <p id="bag-note" className="mt-2 text-xs text-muted">Bag and secure checkout open in the next release. Ask about this item on WhatsApp in the meantime.</p>
+      <div className="mt-5 flex items-center gap-3">
+        <div className="inline-flex items-center border border-line bg-white" role="group" aria-label="Quantity">
+          <button type="button" className="h-11 w-11 text-lg disabled:opacity-40" onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1} aria-label="Decrease quantity">−</button>
+          <span className="min-w-8 text-center text-sm" aria-live="polite">{qty}</span>
+          <button type="button" className="h-11 w-11 text-lg disabled:opacity-40" onClick={() => setQty((q) => Math.min(10, q + 1))} disabled={qty >= 10} aria-label="Increase quantity">+</button>
+        </div>
+        <button type="button" onClick={addToBag} disabled={!purchasable || add.kind === 'busy'} className="btn-gold flex-1 disabled:cursor-not-allowed disabled:opacity-50">
+          {!purchasable ? 'Unavailable' : add.kind === 'busy' ? 'Adding…' : 'Add to bag'}
+        </button>
+      </div>
+      <p role="status" className={`mt-2 min-h-[1.25rem] text-sm ${add.kind === 'error' ? 'text-red-800' : 'text-gold-deep'}`}>
+        {add.message}{add.kind === 'added' ? <> <Link href="/cart" className="underline">View bag</Link></> : null}
+      </p>
       {whatsappHref ? <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn-outline mt-4 w-full">Ask about this wig on WhatsApp</a> : null}
     </div>
   );

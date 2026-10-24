@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { getSettings, getSiteContent } from '@/lib/catalog';
 import { whatsAppLink } from '@/lib/whatsapp';
+import { BagCount } from '@/components/shop/BagCount';
 
 const NAV = [
   { href: '/shop', label: 'Shop' },
@@ -42,7 +43,7 @@ export async function Header() {
             {wa ? <a href={wa} target="_blank" rel="noopener noreferrer" className="hidden h-11 items-center px-3 text-sm text-gold-soft hover:text-ivory md:flex">WhatsApp</a> : null}
             <Link href="/cart" className="flex h-11 items-center gap-2 px-3 text-sm hover:text-gold-soft" aria-label="Shopping bag">
               <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8a3 3 0 0 1 6 0" /></svg>
-              <span className="hidden sm:inline">Bag</span>
+              <span className="hidden sm:inline">Bag</span><BagCount />
             </Link>
           </div>
         </div>
