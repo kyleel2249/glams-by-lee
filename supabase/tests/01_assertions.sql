@@ -189,6 +189,66 @@ do $$ begin
   exception when unique_violation then null; end;
 end $$;
 
+-- ===== admin back-office (Phase 4) =====
+-- order_status_history records the staff actor for admin-driven changes
+select adjust_stock('20000000-0000-0000-0000-000000000001', 5, 'received', 'stock for admin tests', '00000000-0000-0000-0000-0000000000a1');
+create temp table po3(r jsonb);
+insert into po3 select place_order('{"email":"adm@test","currency":"GHS","subtotal_minor":200000,"discount_minor":0,"shipping_minor":0,"tax_minor":0,"total_minor":200000,"shipping_address":{},"idempotency_key":"key-adm"}'::jsonb,
+  '[{"variant_id":"20000000-0000-0000-0000-000000000001","quantity":2,"unit_price_minor":100000}]'::jsonb);
+insert into payments(order_id,provider,reference,amount_minor,currency) values ((select (r->>'order_id')::uuid from po3),'paystack','ref-adm',200000,'GHS');
+select assert(apply_verified_payment('ref-adm','t-adm',200000,'GHS')='paid','admin test order paid');
+
+-- staff cannot set payment states or use refund states directly
+do $$ begin begin perform admin_set_order_status((select (r->>'order_id')::uuid from po3),'paid','00000000-0000-0000-0000-0000000000a1');
+  raise exception 'ASSERTION FAILED: admin marked paid'; exception when sqlstate 'P0005' then null; end; end $$;
+do $$ begin begin perform admin_set_order_status((select (r->>'order_id')::uuid from po3),'refunded','00000000-0000-0000-0000-0000000000a1');
+  raise exception 'ASSERTION FAILED: admin set refunded directly'; exception when sqlstate 'P0006' then null; end; end $$;
+do $$ begin begin perform admin_set_order_status((select (r->>'order_id')::uuid from po3),'cancelled','00000000-0000-0000-0000-0000000000a1');
+  raise exception 'ASSERTION FAILED: paid order cancelled without refund'; exception when sqlstate 'P0006' then null; end; end $$;
+
+select admin_set_order_status((select (r->>'order_id')::uuid from po3),'processing','00000000-0000-0000-0000-0000000000a1','packing');
+select assert((select actor_id from order_status_history where order_id=(select (r->>'order_id')::uuid from po3) and to_status='processing')='00000000-0000-0000-0000-0000000000a1','status history records the staff actor');
+select assert((select note from order_status_history where order_id=(select (r->>'order_id')::uuid from po3) and to_status='processing')='packing','status note saved');
+do $$ begin begin perform admin_set_order_status((select (r->>'order_id')::uuid from po3),'delivered','00000000-0000-0000-0000-0000000000a1');
+  raise exception 'ASSERTION FAILED: skipped dispatch'; exception when check_violation then null; end; end $$;
+select admin_set_order_status((select (r->>'order_id')::uuid from po3),'ready_for_dispatch','00000000-0000-0000-0000-0000000000a1');
+select admin_set_order_status((select (r->>'order_id')::uuid from po3),'shipped','00000000-0000-0000-0000-0000000000a1');
+
+-- refunds: partial, over-refund blocked, decline restores previous status, full refund + restock
+select assert(request_refund((select (r->>'order_id')::uuid from po3), 50000, 'damaged item', '00000000-0000-0000-0000-0000000000a1') is not null,'partial refund requested');
+select assert((select status from orders where id=(select (r->>'order_id')::uuid from po3))='refund_pending','order is refund_pending');
+do $$ begin begin perform request_refund((select (r->>'order_id')::uuid from po3), 160000, 'too much', '00000000-0000-0000-0000-0000000000a1');
+  raise exception 'ASSERTION FAILED: over-refund allowed'; exception when sqlstate 'P0006' then null; end; end $$;
+select decline_refund((select id from refunds where order_id=(select (r->>'order_id')::uuid from po3) and status='requested'),'00000000-0000-0000-0000-0000000000a1');
+select assert((select status from orders where id=(select (r->>'order_id')::uuid from po3))='shipped','declined refund restores shipped status');
+select complete_refund(request_refund((select (r->>'order_id')::uuid from po3), 50000, 'partial', '00000000-0000-0000-0000-0000000000a1'),'00000000-0000-0000-0000-0000000000a1');
+select assert((select status from orders where id=(select (r->>'order_id')::uuid from po3))='partially_refunded','partial refund completed');
+select assert((select status from payments where reference='ref-adm')='partially_refunded','payment partially_refunded');
+select complete_refund(request_refund((select (r->>'order_id')::uuid from po3), 150000, 'rest', '00000000-0000-0000-0000-0000000000a1'),'00000000-0000-0000-0000-0000000000a1', true);
+select assert((select status from orders where id=(select (r->>'order_id')::uuid from po3))='refunded','full refund marks order refunded');
+select assert((select count(*) from inventory_movements where movement_type='returned' and quantity_delta=2)=1,'full refund restocked the items');
+select assert((select count(*) from audit_logs where action like 'refund.%')>=4,'refund actions audited');
+
+-- dashboard metrics: unpaid/cancelled never count as revenue; refunds reported separately
+create temp table m(j jsonb);
+insert into m select admin_metrics(now() - interval '1 day', now() + interval '1 day');
+select assert((select (j->'revenue'->0->>'gross_minor')::bigint from m) = (select sum(total_minor) from orders where paid_at is not null),'revenue = verified-paid orders only');
+select assert((select (j->'refunded'->0->>'amount_minor')::bigint from m)=200000,'refunds reported separately');
+select assert((select (j->>'unpaid')::int from m) = (select count(*) from orders where status in ('pending_payment','payment_processing','payment_failed')),'unpaid count');
+select assert(jsonb_array_length((select j->'best_sellers' from m))>=1,'best sellers computed');
+
+-- the last owner can never be removed
+do $$ begin begin delete from user_roles where role='owner';
+  raise exception 'ASSERTION FAILED: last owner removed'; exception when sqlstate 'P0007' then null; end; end $$;
+do $$ begin begin update user_roles set role='content_editor' where role='owner';
+  raise exception 'ASSERTION FAILED: last owner demoted'; exception when sqlstate 'P0007' then null; end; end $$;
+
+-- admin functions are not callable by customers
+set role authenticated;
+do $$ begin begin perform admin_metrics(now(), now());
+  raise exception 'ASSERTION FAILED: customer called admin_metrics'; exception when insufficient_privilege then null; end; end $$;
+reset role;
+
 -- RLS: customer isolation
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b2';
@@ -220,7 +280,7 @@ reset role;
 -- RLS: owner can read orders and audit
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
-select assert((select count(*) from orders)=5, 'owner sees all orders');
+select assert((select count(*) from orders)=6, 'owner sees all orders');
 select assert((select count(*) from products)=2, 'owner sees unpublished products');
 reset role;
 

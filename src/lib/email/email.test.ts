@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { esc, paymentConfirmationEmail, type EmailOrder } from './templates';
+import { esc, paymentConfirmationEmail, shippedEmail, type EmailOrder } from './templates';
 import { sendEmail } from './send';
 
 const order: EmailOrder = {
@@ -27,4 +27,11 @@ describe('sendEmail', () => {
     expect(await sendEmail(msg, { apiKey: 'k', from: 'f' }, async () => ({ ok: false, status: 422, text: async () => '' }))).toMatchObject({ ok: false });
     expect(await sendEmail(msg, { apiKey: 'k', from: 'f' }, async () => { throw new Error('offline'); })).toMatchObject({ ok: false, error: 'offline' });
   });
+});
+
+describe('shipped email', () => {
+  const base = { orderNumber: 'GBL-1', carrier: 'DHL <b>', trackingNumber: 'AB"12', trackingUrl: 'https://track.test/1?a=1&b=2', orderUrl: 'https://shop.test/orders/GBL-1?t=x', whatsappUrl: null };
+  it('escapes carrier, number and links', () => { const e = shippedEmail(base); expect(e.html).not.toContain('<b>'); expect(e.html).toContain('AB&quot;12'); expect(e.html).toContain('a=1&amp;b=2'); });
+  it('omits the tracking button without a link', () => expect(shippedEmail({ ...base, trackingUrl: null }).html).not.toContain('Track your parcel'));
+  it('has a subject with the order number', () => expect(shippedEmail(base).subject).toContain('GBL-1'));
 });

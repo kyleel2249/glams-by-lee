@@ -35,3 +35,18 @@ ${o.whatsappUrl ? `<p style="color:#6B625C;font-size:14px">Questions? <a href="$
     `Delivering to: ${o.deliveryTo}`, `View your order: ${o.orderUrl}`].join('\n');
   return { subject, html, text };
 }
+
+export interface ShippedEmail { orderNumber: string; carrier: string; trackingNumber: string; trackingUrl: string | null; orderUrl: string; whatsappUrl: string | null }
+
+export function shippedEmail(o: ShippedEmail): { subject: string; html: string; text: string } {
+  const subject = `GLAMS BY LEE: order ${o.orderNumber} is on its way`;
+  const html = `<!doctype html><html><body style="margin:0;background:#F6F0E8;font-family:Arial,Helvetica,sans-serif;color:#171514"><table role="presentation" width="100%"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="600" style="max-width:600px;background:#fff"><tr><td style="background:#171514;color:#B9945A;text-align:center;padding:24px;font-family:Georgia,serif;font-size:26px;letter-spacing:6px">GLAMS BY LEE</td></tr>
+<tr><td style="padding:28px"><h1 style="font-family:Georgia,serif;font-weight:normal;font-size:26px;margin:0 0 8px">Your order is on its way.</h1><p style="margin:0 0 20px;color:#6B625C">Order ${esc(o.orderNumber)}</p>
+<p><strong>${esc(o.carrier)}</strong><br>Tracking number: ${esc(o.trackingNumber)}</p>
+${o.trackingUrl ? `<p><a href="${esc(o.trackingUrl)}" style="background:#B9945A;color:#171514;padding:12px 24px;text-decoration:none;display:inline-block">Track your parcel</a></p>` : ''}
+<p><a href="${esc(o.orderUrl)}" style="color:#8F6F3C">View your order</a></p>
+${o.whatsappUrl ? `<p style="color:#6B625C;font-size:14px">Questions? <a href="${esc(o.whatsappUrl)}" style="color:#8F6F3C">Message us on WhatsApp</a>.</p>` : ''}</td></tr></table></td></tr></table></body></html>`;
+  const text = [`GLAMS BY LEE`, `Order ${o.orderNumber} is on its way.`, `${o.carrier}: ${o.trackingNumber}`, ...(o.trackingUrl ? [`Track: ${o.trackingUrl}`] : []), `Your order: ${o.orderUrl}`].join('\n');
+  return { subject, html, text };
+}
