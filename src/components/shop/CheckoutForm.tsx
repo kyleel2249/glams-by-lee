@@ -8,8 +8,11 @@ interface Quote { deliverable: boolean; options: Option[]; selected: Option | nu
   totals: { subtotalMinor: number; discountMinor: number; shippingMinor: number; taxMinor: number; totalMinor: number } | null; currency: string; subtotalMinor: number; error?: string }
 interface CartLite { lines: { variantId: string; productName: string; quantity: number; lineTotalMinor: number; attributes: string[] }[]; currency: string; subtotalMinor: number; hasProblems: boolean }
 
+interface Prefill { signedIn: boolean; email?: string; name?: string; phone?: string; address?: { line1: string; line2: string | null; city: string; region: string | null; postalCode: string | null; country: string } | null }
+
 export function CheckoutForm({ countries }: { countries: { code: string; name: string }[] }) {
   const [cart, setCart] = useState<CartLite | null>(null);
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [country, setCountry] = useState(countries.find((c) => c.code === 'GH')?.code ?? countries[0]?.code ?? '');
   const [region, setRegion] = useState('');
   const [rateId, setRateId] = useState('');
@@ -21,6 +24,13 @@ export function CheckoutForm({ countries }: { countries: { code: string; name: s
   const idemKey = useMemo(() => { try { const k = sessionStorage.getItem('gbl_idem') ?? crypto.randomUUID(); sessionStorage.setItem('gbl_idem', k); return k; } catch { return crypto.randomUUID(); } }, []);
 
   useEffect(() => { fetch('/api/cart', { cache: 'no-store' }).then((r) => r.json()).then(setCart).catch(() => setError('Could not load your bag.')); }, []);
+  useEffect(() => {
+    fetch('/api/checkout/prefill', { cache: 'no-store' }).then((r) => r.json()).then((d: Prefill) => {
+      setPrefill(d);
+      if (d.address && countries.some((c) => c.code === d.address!.country)) { setCountry(d.address.country); setRegion(d.address.region ?? ''); }
+    }).catch(() => setPrefill({ signedIn: false }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const requote = useCallback(async () => {
     if (!country || !cart?.lines.length) return;
@@ -51,7 +61,7 @@ export function CheckoutForm({ countries }: { countries: { code: string; name: s
     } catch { setError('No connection. Nothing was charged. Please try again.'); setBusy(false); }
   }
 
-  if (!cart) return <p className="mt-8 text-muted" role="status">Loading…</p>;
+  if (!cart || !prefill) return <p className="mt-8 text-muted" role="status">Loading…</p>;
   if (!cart.lines.length) return <div className="mt-8"><p className="text-muted">Your bag is empty.</p><Link href="/shop" className="btn-gold mt-6">Continue shopping</Link></div>;
   if (cart.hasProblems) return <div className="mt-8"><p role="alert" className="text-red-800">Some items in your bag need attention before you can check out.</p><Link href="/cart" className="btn-gold mt-6">Review your bag</Link></div>;
   if (!countries.length) return <p className="mt-8 text-muted">We are setting up delivery. Please contact us to place your order.</p>;
@@ -63,21 +73,22 @@ export function CheckoutForm({ countries }: { countries: { code: string; name: s
     <form onSubmit={submit} className="mt-8 grid gap-10 lg:grid-cols-[1fr_22rem]" aria-label="Checkout">
       <div className="grid gap-8">
         {error ? <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
+        {!prefill.signedIn ? <p className="text-sm text-muted">Have an account? <a href="/account/login?next=%2Fcheckout" className="underline">Sign in</a> to use your saved details. Guest checkout is fine too.</p> : null}
         <fieldset className="grid gap-4"><legend className="font-display text-2xl">Contact</legend>
-          <label className="grid gap-1 text-sm font-medium">Email<input name="email" type="email" required autoComplete="email" className="field font-normal" /></label>
-          <label className="grid gap-1 text-sm font-medium">Phone (for delivery)<input name="phone" type="tel" required autoComplete="tel" inputMode="tel" className="field font-normal" /></label>
+          <label className="grid gap-1 text-sm font-medium">Email<input name="email" type="email" required autoComplete="email" defaultValue={prefill.email ?? ''} className="field font-normal" /></label>
+          <label className="grid gap-1 text-sm font-medium">Phone (for delivery)<input name="phone" type="tel" required autoComplete="tel" inputMode="tel" defaultValue={prefill.phone ?? ''} className="field font-normal" /></label>
         </fieldset>
         <fieldset className="grid gap-4"><legend className="font-display text-2xl">Delivery address</legend>
-          <label className="grid gap-1 text-sm font-medium">Full name<input name="name" required autoComplete="name" className="field font-normal" /></label>
+          <label className="grid gap-1 text-sm font-medium">Full name<input name="name" required autoComplete="name" defaultValue={prefill.name ?? ''} className="field font-normal" /></label>
           <label className="grid gap-1 text-sm font-medium">Country
             <select value={country} onChange={(e) => { setCountry(e.target.value); setRateId(''); }} required className="field font-normal">{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
-          <label className="grid gap-1 text-sm font-medium">Address<input name="line1" required autoComplete="address-line1" className="field font-normal" /></label>
-          <label className="grid gap-1 text-sm font-medium">Apartment, landmark or directions (optional)<input name="line2" autoComplete="address-line2" className="field font-normal" /></label>
+          <label className="grid gap-1 text-sm font-medium">Address<input name="line1" required autoComplete="address-line1" defaultValue={prefill.address?.line1 ?? ''} className="field font-normal" /></label>
+          <label className="grid gap-1 text-sm font-medium">Apartment, landmark or directions (optional)<input name="line2" autoComplete="address-line2" defaultValue={prefill.address?.line2 ?? ''} className="field font-normal" /></label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-sm font-medium">City or town<input name="city" required autoComplete="address-level2" className="field font-normal" /></label>
+            <label className="grid gap-1 text-sm font-medium">City or town<input name="city" required autoComplete="address-level2" defaultValue={prefill.address?.city ?? ''} className="field font-normal" /></label>
             <label className="grid gap-1 text-sm font-medium">Region<input value={region} onChange={(e) => { setRegion(e.target.value); setRateId(''); }} autoComplete="address-level1" className="field font-normal" /></label>
           </div>
-          <label className="grid gap-1 text-sm font-medium">Postal code (if you have one)<input name="postalCode" autoComplete="postal-code" className="field font-normal" /></label>
+          <label className="grid gap-1 text-sm font-medium">Postal code (if you have one)<input name="postalCode" autoComplete="postal-code" defaultValue={prefill.address?.postalCode ?? ''} className="field font-normal" /></label>
         </fieldset>
         <fieldset className="grid gap-3"><legend className="font-display text-2xl">Delivery method</legend>
           {quote && !quote.deliverable ? <p className="text-sm text-red-800">We do not deliver to this destination yet. Please contact us.</p> : null}

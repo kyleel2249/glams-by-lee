@@ -249,6 +249,57 @@ do $$ begin begin perform admin_metrics(now(), now());
   raise exception 'ASSERTION FAILED: customer called admin_metrics'; exception when insufficient_privilege then null; end; end $$;
 reset role;
 
+-- ===== customer accounts (Phase 5) =====
+-- consent captured at sign-up, opt-in only
+insert into auth.users(id,email,raw_user_meta_data) values ('00000000-0000-0000-0000-0000000000c1','opt-in@test','{"full_name":"Ama Mensah","marketing_consent":"true"}');
+insert into auth.users(id,email,raw_user_meta_data) values ('00000000-0000-0000-0000-0000000000c2','no-consent@test','{"full_name":"Kofi"}');
+select assert((select marketing_consent from profiles where id='00000000-0000-0000-0000-0000000000c1') and (select marketing_consent_at from profiles where id='00000000-0000-0000-0000-0000000000c1') is not null,'consent recorded with timestamp');
+select assert(not (select marketing_consent from profiles where id='00000000-0000-0000-0000-0000000000c2'),'no consent by default');
+select assert((select count(*) from newsletter_subscriptions where email='opt-in@test')=1 and (select count(*) from newsletter_subscriptions where email='no-consent@test')=0,'only opted-in emails reach the newsletter list');
+select assert((select full_name from profiles where id='00000000-0000-0000-0000-0000000000c1')='Ama Mensah','full name copied to profile');
+
+-- guest orders are claimed by email, only guest orders, case-insensitively
+insert into orders(id,email,guest_email,currency,subtotal_minor,total_minor,shipping_address) values ('30000000-0000-0000-0000-0000000000c1','Opt-In@Test','Opt-In@Test','GHS',1,1,'{}');
+insert into orders(id,user_id,email,currency,subtotal_minor,total_minor,shipping_address) values ('30000000-0000-0000-0000-0000000000c2','00000000-0000-0000-0000-0000000000b1','opt-in@test','GHS',1,1,'{}');
+select assert(claim_guest_orders('00000000-0000-0000-0000-0000000000c1','opt-in@test')=1,'one guest order claimed');
+select assert((select user_id from orders where id='30000000-0000-0000-0000-0000000000c1')='00000000-0000-0000-0000-0000000000c1','guest order now belongs to the account');
+select assert((select user_id from orders where id='30000000-0000-0000-0000-0000000000c2')='00000000-0000-0000-0000-0000000000b1','orders owned by someone else are never taken over');
+select assert(claim_guest_orders('00000000-0000-0000-0000-0000000000c1','')=0,'blank email claims nothing');
+
+-- cart merge keeps the cookie working and caps quantities
+insert into carts(id,guest_token_hash) values ('50000000-0000-0000-0000-000000000001','hash-guest');
+insert into carts(id,user_id) values ('50000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-0000000000c1');
+insert into cart_items(cart_id,variant_id,quantity) values ('50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',15),('50000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001',10);
+select merge_guest_cart_into_user('50000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000002');
+select assert((select quantity from cart_items where cart_id='50000000-0000-0000-0000-000000000002')=20,'merged quantity capped at 20');
+select assert((select count(*) from carts where id='50000000-0000-0000-0000-000000000001')=0,'guest cart removed after merge');
+select assert((select guest_token_hash from carts where id='50000000-0000-0000-0000-000000000002')='hash-guest','account cart now answers to the browser cookie');
+
+-- reviews: customers cannot self-approve or fake verification; public summary counts approved only
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+insert into reviews(product_id,user_id,rating,title,status,is_verified_purchase) values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000b1',5,'Lovely','approved',true);
+reset role;
+select assert((select status from reviews where user_id='00000000-0000-0000-0000-0000000000b1')='pending','review forced into moderation');
+select assert((select is_verified_purchase from reviews where user_id='00000000-0000-0000-0000-0000000000b1') = true,'verified flag computed from real paid orders');
+select assert((select count(*) from product_rating_summary)=0,'pending reviews are not in the public summary');
+update reviews set status='approved' where user_id='00000000-0000-0000-0000-0000000000b1';
+select assert((select review_count from product_rating_summary where product_id='10000000-0000-0000-0000-000000000001')=1 and (select avg_rating from product_rating_summary where product_id='10000000-0000-0000-0000-000000000001')=5.0,'approved review appears in summary');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b2';
+do $$ begin
+  begin insert into reviews(product_id,user_id,rating) values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000b1',1);
+    raise exception 'ASSERTION FAILED: review written as another user';
+  exception when insufficient_privilege or others then if sqlerrm like 'ASSERTION%' then raise; end if; end;
+end $$;
+reset role;
+
+-- customers cannot call the new functions
+set role authenticated;
+do $$ begin begin perform claim_guest_orders('00000000-0000-0000-0000-0000000000b1','x@test');
+  raise exception 'ASSERTION FAILED: customer claimed orders'; exception when insufficient_privilege then null; end; end $$;
+reset role;
+
 -- RLS: customer isolation
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b2';
@@ -280,7 +331,7 @@ reset role;
 -- RLS: owner can read orders and audit
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
-select assert((select count(*) from orders)=6, 'owner sees all orders');
+select assert((select count(*) from orders)=8, 'owner sees all orders');
 select assert((select count(*) from products)=2, 'owner sees unpublished products');
 reset role;
 

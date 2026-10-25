@@ -3,6 +3,7 @@ import { Wordmark } from '@/components/brand/Wordmark';
 import { getSettings, getSiteContent } from '@/lib/catalog';
 import { whatsAppLink } from '@/lib/whatsapp';
 import { BagCount } from '@/components/shop/BagCount';
+import { AccountLink } from './AccountLink';
 
 const NAV = [
   { href: '/shop', label: 'Shop' },
@@ -41,6 +42,10 @@ export async function Header() {
               <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
             </Link>
             {wa ? <a href={wa} target="_blank" rel="noopener noreferrer" className="hidden h-11 items-center px-3 text-sm text-gold-soft hover:text-ivory md:flex">WhatsApp</a> : null}
+            <Link href="/account/wishlist" className="hidden h-11 w-11 items-center justify-center hover:text-gold-soft sm:flex" aria-label="Wishlist">
+              <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" /></svg>
+            </Link>
+            <AccountLink />
             <Link href="/cart" className="flex h-11 items-center gap-2 px-3 text-sm hover:text-gold-soft" aria-label="Shopping bag">
               <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8a3 3 0 0 1 6 0" /></svg>
               <span className="hidden sm:inline">Bag</span><BagCount />

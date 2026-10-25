@@ -24,6 +24,15 @@ function ok<T>(res: { data: T | null; error: { message: string } | null }): T | 
   return res.data;
 }
 
+async function ratingMap(productIds: string[]): Promise<Map<string, { avg: number; count: number }>> {
+  const db = createPublic();
+  const map = new Map<string, { avg: number; count: number }>();
+  if (!db || !productIds.length) return map;
+  const data = ok(await db.from('product_rating_summary').select('product_id, avg_rating, review_count').in('product_id', productIds));
+  ((data ?? []) as { product_id: string; avg_rating: number; review_count: number }[]).forEach((r) => map.set(r.product_id, { avg: Number(r.avg_rating), count: Number(r.review_count) }));
+  return map;
+}
+
 async function availabilityMap(productIds: string[]): Promise<Map<string, Availability>> {
   const db = createPublic();
   const map = new Map<string, Availability>();
@@ -33,11 +42,12 @@ async function availabilityMap(productIds: string[]): Promise<Map<string, Availa
   return map;
 }
 
-function shape(rows: RawProduct[], avail: Map<string, Availability>): CatalogProduct[] {
+function shape(rows: RawProduct[], avail: Map<string, Availability>, ratings: Map<string, { avg: number; count: number }> = new Map()): CatalogProduct[] {
   return rows.map((r) => ({
     id: r.id, slug: r.slug, sku: r.sku, name: r.name, description: r.description, productType: r.product_type, categoryId: r.category_id,
     hairMaterial: r.hair_material, texture: r.texture, construction: r.construction, laceType: r.lace_type,
     careInstructions: r.care_instructions, shippingReturnsNote: r.shipping_returns_note, isFeatured: r.is_featured, createdAt: r.created_at,
+    rating: ratings.get(r.id) ?? null,
     images: [...r.product_images].sort((a, b) => a.sort_order - b.sort_order).map((i) => ({ url: i.url, alt: i.alt_text, variantId: i.variant_id })),
     variants: r.product_variants.filter((v) => v.is_active).sort((a, b) => a.sort_order - b.sort_order).map((v) => ({
       id: v.id, sku: v.sku, priceMinor: v.price_minor, compareAtMinor: v.compare_at_price_minor, currency: v.currency.trim(),
@@ -66,7 +76,8 @@ export async function getProducts(categorySlug?: string): Promise<CatalogProduct
   }
   const data = ok(await query.order('created_at', { ascending: false }));
   const rows = (data ?? []) as unknown as RawProduct[];
-  return shape(rows, await availabilityMap(rows.map((r) => r.id)));
+  const ids = rows.map((r) => r.id);
+  return shape(rows, await availabilityMap(ids), await ratingMap(ids));
 }
 
 export async function getProductBySlug(slug: string): Promise<CatalogProduct | null> {
@@ -74,7 +85,7 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
   const data = ok(await db.from('products').select(PRODUCT_SELECT).eq('slug', slug).eq('is_published', true).maybeSingle());
   if (!data) return null;
   const row = data as unknown as RawProduct;
-  return shape([row], await availabilityMap([row.id]))[0];
+  return shape([row], await availabilityMap([row.id]), await ratingMap([row.id]))[0];
 }
 
 export async function getApprovedReviews(productId: string): Promise<ApprovedReview[]> {

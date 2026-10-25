@@ -24,6 +24,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { data: recent } = showOrders ? await db.from('orders').select('id, order_number, status, total_minor, currency, placed_at').order('placed_at', { ascending: false }).limit(8) : { data: [] };
   const money = (n: number, c: string) => formatMoney(Number(n), c.trim() as CurrencyCode);
   const refundedBy = new Map(m.refunded.map((r) => [r.currency, Number(r.amount_minor)]));
+  const [{ count: pendingReviews }, { count: deletions }] = await Promise.all([
+    can(staff.roles, 'reviews.moderate') ? db.from('reviews').select('id', { count: 'exact', head: true }).eq('status', 'pending') : Promise.resolve({ count: null }),
+    can(staff.roles, 'privacy.manage') ? db.from('profiles').select('id', { count: 'exact', head: true }).not('deletion_requested_at', 'is', null) : Promise.resolve({ count: null }),
+  ]);
   const maxDay = Math.max(1, ...m.daily.map((d) => Number(d.gross_minor)));
 
   return (
@@ -38,6 +42,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Stat label="Awaiting dispatch" value={m.awaiting_dispatch} /><Stat label="Unpaid orders" value={m.unpaid} note="Never counted as revenue" />
         <Stat label="Low stock variants" value={m.low_stock} /><Stat label="Out of stock variants" value={m.out_of_stock} />
         <Stat label="Open refunds" value={m.refunds_open} /><Stat label="Payment exceptions" value={m.payment_exceptions} note={m.payment_exceptions ? 'Mismatches or late payments need review' : 'None'} />
+        {pendingReviews !== null ? <Stat label="Reviews waiting" value={pendingReviews} /> : null}{deletions !== null ? <Stat label="Deletion requests" value={deletions} /> : null}
       </dl>
       <p className="mt-2 text-xs text-muted">Revenue counts orders whose payment was verified in the period, minus refunds completed in the period. Unpaid, failed and cancelled orders are excluded.</p>
 

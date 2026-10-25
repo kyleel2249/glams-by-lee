@@ -14,6 +14,13 @@ describe('permissions', () => {
   it('no roles means no access; multiple roles combine', () => { expect(can([], 'dashboard.view')).toBe(false); expect(can(['content_editor', 'order_manager'], 'orders.update')).toBe(true); });
 });
 
+describe('review and privacy permissions', () => {
+  it('support moderates reviews; only store manager and owner handle deletions', () => {
+    expect(can(['customer_support'], 'reviews.moderate')).toBe(true); expect(can(['content_editor'], 'reviews.moderate')).toBe(false); expect(can(['order_manager'], 'reviews.moderate')).toBe(false);
+    expect(can(['store_manager'], 'privacy.manage')).toBe(true); expect(can(['customer_support'], 'privacy.manage')).toBe(false); expect(can(['owner'], 'privacy.manage')).toBe(true);
+  });
+});
+
 describe('csv', () => {
   it('neutralises spreadsheet formulas in text', () => { expect(csvCell('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`); expect(csvCell('+1')).toBe("'+1"); expect(csvCell('@SUM')).toBe("'@SUM"); expect(csvCell('-2+3')).toBe("'-2+3"); });
   it('keeps genuine negative numbers numeric', () => expect(csvCell(-500)).toBe('-500'));

@@ -2,6 +2,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { CART_COOKIE, hashCartToken, isPlausibleToken, newCartToken } from '@/lib/cartToken';
 import { createAdmin } from '@/lib/supabase/admin';
+import { getCustomer, hasSessionCookie } from '@/lib/customer/auth';
 import type { PriceLine } from '@/lib/pricing';
 
 export interface CartLine {
@@ -35,21 +36,40 @@ export async function readCartToken(): Promise<string | null> {
   return isPlausibleToken(t) ? t : null;
 }
 
-async function findCartId(token: string): Promise<string | null> {
-  const { data, error } = await createAdmin().from('carts').select('id').eq('guest_token_hash', hashCartToken(token)).maybeSingle();
+async function findCart(token: string): Promise<{ id: string; userId: string | null } | null> {
+  const { data, error } = await createAdmin().from('carts').select('id, user_id').eq('guest_token_hash', hashCartToken(token)).maybeSingle();
   if (error) throw new Error('Cart lookup failed');
-  return (data as { id: string } | null)?.id ?? null;
+  const row = data as { id: string; user_id: string | null } | null;
+  return row ? { id: row.id, userId: row.user_id } : null;
 }
 
-/** Returns the visitor's cart id, creating the cart and cookie when `create` is true. */
+/**
+ * Returns the visitor's cart id, creating the cart and cookie when `create` is true.
+ * Signed-in customers get one cart that follows them across devices: a browser's guest cart is merged into it on sign-in.
+ */
 export async function getCartId(create: boolean, currency = 'GHS'): Promise<string | null> {
-  const existing = await readCartToken();
-  if (existing) { const id = await findCartId(existing); if (id) return id; }
+  const db = createAdmin();
+  const token = await readCartToken();
+  let tokenCart = token ? await findCart(token) : null;
+  const customer = (await hasSessionCookie()) ? await getCustomer() : null;
+
+  if (customer) {
+    if (tokenCart?.userId && tokenCart.userId !== customer.id) tokenCart = null;   // another customer's cart on a shared browser: never hand it over
+    const { data } = await db.from('carts').select('id').eq('user_id', customer.id).maybeSingle();
+    const mine = (data as { id: string } | null)?.id ?? null;
+    if (tokenCart && mine && tokenCart.id !== mine) { await db.rpc('merge_guest_cart_into_user', { p_guest: tokenCart.id, p_user_cart: mine }); return mine; }
+    if (tokenCart && !mine) { await db.from('carts').update({ user_id: customer.id }).eq('id', tokenCart.id); return tokenCart.id; }
+    if (mine) return mine;
+  } else if (tokenCart) {
+    return tokenCart.id;
+  }
+  if (tokenCart) return tokenCart.id;
   if (!create) return null;
-  const token = newCartToken();
-  const { data, error } = await createAdmin().from('carts').insert({ guest_token_hash: hashCartToken(token), currency }).select('id').single();
+
+  const fresh = newCartToken();
+  const { data, error } = await db.from('carts').insert({ guest_token_hash: hashCartToken(fresh), currency, user_id: customer?.id ?? null }).select('id').single();
   if (error || !data) throw new Error('Could not create cart');
-  (await cookies()).set(CART_COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
+  (await cookies()).set(CART_COOKIE, fresh, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
   return (data as { id: string }).id;
 }
 

@@ -8,6 +8,7 @@ import { getPaystackProvider } from '@/lib/payments/paymentStore';
 import { buildQuote } from '@/lib/quote';
 import { clientIp, rateLimited } from '@/lib/rateLimit';
 import { createAdmin } from '@/lib/supabase/admin';
+import { getCustomer } from '@/lib/customer/auth';
 
 export const dynamic = 'force-dynamic';
 const REQUIRED = ['SUPABASE_SERVICE_ROLE_KEY', 'PAYSTACK_SECRET_KEY', 'ORDER_LINK_SECRET', 'NEXT_PUBLIC_SITE_URL'] as const;
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
     const { data: flag } = await createAdmin().from('admin_settings').select('value').eq('key', 'checkout_enabled').maybeSingle();
     if ((flag as { value: unknown } | null)?.value === false) return NextResponse.json({ error: 'Checkout is paused right now. Please contact us to order.' }, { status: 503 });
 
+    const customer = await getCustomer();
     const cartId = await getCartId(false);
     const cart = await loadCart(cartId);
     if (!cartId || !cart.lines.length) return NextResponse.json({ error: 'Your bag is empty.' }, { status: 400 });
@@ -43,7 +45,7 @@ export async function POST(req: Request) {
 
     const result = await startCheckout({
       order: {
-        user_id: null, email: i.email, phone: i.phone, currency: cart.currency,
+        user_id: customer?.id ?? null, email: i.email, phone: i.phone, currency: cart.currency,
         subtotal_minor: t.subtotalMinor, discount_minor: t.discountMinor, shipping_minor: t.shippingMinor, tax_minor: t.taxMinor, total_minor: t.totalMinor,
         discount_code_id: quote.discount && rule ? rule.id : null, shipping_rate_id: quote.selected.id, shipping_method_name: quote.selected.name,
         shipping_address: { name: i.name, phone: i.phone, line1: i.line1, line2: i.line2 ?? null, city: i.city, region: i.region ?? null, postal_code: i.postalCode ?? null, country: i.country },

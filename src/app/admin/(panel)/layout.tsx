@@ -8,9 +8,9 @@ import { logoutAction } from '../login/actions';
 const NAV: { href: string; label: string; perm: Permission }[] = [
   { href: '/admin', label: 'Dashboard', perm: 'dashboard.view' }, { href: '/admin/orders', label: 'Orders', perm: 'orders.view' },
   { href: '/admin/products', label: 'Products', perm: 'products.write' }, { href: '/admin/categories', label: 'Categories', perm: 'categories.write' },
-  { href: '/admin/inventory', label: 'Inventory', perm: 'inventory.view' }, { href: '/admin/discounts', label: 'Discounts', perm: 'discounts.write' },
+  { href: '/admin/inventory', label: 'Inventory', perm: 'inventory.view' }, { href: '/admin/reviews', label: 'Reviews', perm: 'reviews.moderate' }, { href: '/admin/discounts', label: 'Discounts', perm: 'discounts.write' },
   { href: '/admin/shipping', label: 'Shipping', perm: 'shipping.write' }, { href: '/admin/content', label: 'Content', perm: 'content.write' },
-  { href: '/admin/settings', label: 'Settings', perm: 'settings.write' }, { href: '/admin/team', label: 'Team', perm: 'roles.manage' }, { href: '/admin/audit', label: 'Audit log', perm: 'audit.view' },
+  { href: '/admin/settings', label: 'Settings', perm: 'settings.write' }, { href: '/admin/privacy', label: 'Privacy requests', perm: 'privacy.manage' }, { href: '/admin/team', label: 'Team', perm: 'roles.manage' }, { href: '/admin/audit', label: 'Audit log', perm: 'audit.view' },
 ];
 
 export default async function Panel({ children }: { children: React.ReactNode }) {

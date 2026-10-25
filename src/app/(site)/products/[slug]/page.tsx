@@ -7,6 +7,8 @@ import { ProductGrid } from '@/components/shop/ProductCard';
 import { getApprovedReviews, getCategories, getProductBySlug, getProducts, getSettings } from '@/lib/catalog';
 import { priceRange, type CatalogProduct } from '@/lib/catalogTypes';
 import { whatsAppLink } from '@/lib/whatsapp';
+import { WishlistButton } from '@/components/shop/WishlistButton';
+import { ReviewForm } from '@/components/shop/ReviewForm';
 
 export const revalidate = 300;
 
@@ -31,8 +33,8 @@ function jsonLd(p: CatalogProduct, base: string) {
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export default async function ProductPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ review_ok?: string; review_error?: string }> }) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const product = await getProductBySlug(slug);
   if (!product) notFound();
   const [settings, reviews, categories, siblings] = await Promise.all([getSettings(), getApprovedReviews(product.id), getCategories(), getProducts()]);
@@ -63,6 +65,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <h1 className="text-4xl md:text-5xl">{product.name}</h1>
           {avg !== null ? <p className="mt-2 text-sm">{avg.toFixed(1)} out of 5 from {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</p> : null}
           <div className="mt-6"><VariantPicker variants={product.variants} whatsappHref={wa} /></div>
+          <div className="mt-4"><WishlistButton productId={product.id} initial={false} loginHref={`/account/login?next=${encodeURIComponent(`/products/${product.slug}`)}`} /></div>
           {product.description ? <p className="mt-8 whitespace-pre-line leading-relaxed">{product.description}</p> : null}
           {specs.length ? (
             <dl className="mt-8 divide-y divide-line border-y border-line text-sm">
@@ -76,7 +79,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
       </div>
       {reviews.length ? (
-        <section className="mt-16" aria-labelledby="reviews"><h2 id="reviews" className="text-3xl">Customer reviews</h2>
+        <section className="mt-16" aria-labelledby="reviews" id="reviews"><h2 id="reviews" className="text-3xl">Customer reviews</h2>
           <ul className="mt-6 grid gap-6 md:grid-cols-2">
             {reviews.map((r) => (
               <li key={r.id} className="border border-line bg-white p-5">
@@ -88,6 +91,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </ul>
         </section>
       ) : null}
+      <ReviewForm productId={product.id} slug={product.slug} ok={sp.review_ok} error={sp.review_error} />
       {related.length ? <section className="mt-16" aria-labelledby="related"><h2 id="related" className="text-3xl">You may also like</h2><div className="mt-6"><ProductGrid products={related} /></div></section> : null}
     </main>
   );

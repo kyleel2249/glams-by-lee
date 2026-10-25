@@ -37,6 +37,7 @@ export function ProductCard({ product, priority = false }: { product: CatalogPro
           ) : <span className="text-muted">Price on request</span>}
         </p>
         {specLine ? <p className="mt-1 text-xs text-muted">{specLine}</p> : null}
+        {product.rating && product.rating.count > 0 ? <p className="mt-1 text-xs"><span aria-hidden>★ </span>{product.rating.avg.toFixed(1)} <span className="text-muted">({product.rating.count} {product.rating.count === 1 ? 'review' : 'reviews'})</span></p> : null}
         <p className={`mt-1 text-xs ${avail === 'out_of_stock' ? 'text-muted' : 'text-gold-deep'}`}>{AVAILABILITY_LABEL[avail]}</p>
       </Link>
     </article>

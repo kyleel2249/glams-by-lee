@@ -13,6 +13,8 @@ export interface CatalogProduct {
   careInstructions: string | null; shippingReturnsNote: string | null;
   isFeatured: boolean; createdAt: string;
   images: CatalogImage[]; variants: CatalogVariant[];
+  /** Approved reviews only. Absent until real reviews exist. */
+  rating?: { avg: number; count: number } | null;
 }
 export interface CatalogCategory { id: string; parentId: string | null; name: string; slug: string; description: string | null; imageUrl: string | null }
 export interface ApprovedReview { id: string; rating: number; title: string | null; body: string | null; verified: boolean; createdAt: string }

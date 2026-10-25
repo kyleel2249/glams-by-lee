@@ -21,6 +21,8 @@ const MATRIX = {
   'shipping.write': ['store_manager'],
   'content.write': ['store_manager', 'content_editor'],
   'settings.write': ['store_manager'],
+  'reviews.moderate': ['store_manager', 'customer_support'],
+  'privacy.manage': ['store_manager'],
   'audit.view': [],
   'roles.manage': [],
 } as const satisfies Record<string, readonly StaffRole[]>;
