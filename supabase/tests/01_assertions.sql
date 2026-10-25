@@ -300,6 +300,22 @@ do $$ begin begin perform claim_guest_orders('00000000-0000-0000-0000-0000000000
   raise exception 'ASSERTION FAILED: customer claimed orders'; exception when insufficient_privilege then null; end; end $$;
 reset role;
 
+-- ===== assistant usage (Phase 6) =====
+insert into assistant_usage(outcome,source,model,latency_ms,input_tokens,output_tokens) values
+ ('answered','ai','m',800,1000,100),('answered','ai','m',1200,1500,150),('fallback','rules',null,null,null,null),('blocked','rules','m',900,900,80);
+create temp table au(j jsonb);
+insert into au select assistant_usage_summary(now() - interval '1 day');
+select assert((select (j->>'total')::int from au)=4,'usage total');
+select assert((select (j->'by_outcome'->>'answered')::int from au)=2 and (select (j->'by_outcome'->>'blocked')::int from au)=1,'usage by outcome');
+select assert((select (j->>'ai_requests')::int from au)=2 and (select (j->>'today')::int from au)=2,'ai requests counted for the cost cap (rule answers are free)');
+select assert((select (j->>'input_tokens')::bigint from au)=3400,'token totals');
+select assert((select (j->>'avg_latency_ms')::int from au)=967,'average latency ignores rows without timing');
+select assert((select count(*) from information_schema.columns where table_name='assistant_usage' and column_name ilike any(array['%message%','%content%','%prompt%','%question%']))=0,'no column can hold conversation text');
+set role authenticated;
+select assert((select count(*) from assistant_usage)=0,'customers cannot read assistant usage');
+do $$ begin begin insert into assistant_usage(outcome) values ('answered'); raise exception 'ASSERTION FAILED: customer wrote usage'; exception when insufficient_privilege or sqlstate '42501' then null; end; end $$;
+reset role;
+
 -- RLS: customer isolation
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b2';

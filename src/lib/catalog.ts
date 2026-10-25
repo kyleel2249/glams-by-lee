@@ -103,17 +103,17 @@ export async function getSiteContent<T = Record<string, unknown>>(key: string): 
 
 export interface StoreSettings {
   whatsappNumber: string | null; supportHours: string | null; contactEmail: string | null;
-  socialLinks: Record<string, string>; defaultCurrency: string;
+  socialLinks: Record<string, string>; defaultCurrency: string; assistantEnabled: boolean;
 }
 export async function getSettings(): Promise<StoreSettings> {
-  const base: StoreSettings = { whatsappNumber: null, supportHours: null, contactEmail: null, socialLinks: {}, defaultCurrency: 'GHS' };
+  const base: StoreSettings = { whatsappNumber: null, supportHours: null, contactEmail: null, socialLinks: {}, defaultCurrency: 'GHS', assistantEnabled: true };
   const db = createPublic(); if (!db) return base;
   const data = ok(await db.from('admin_settings').select('key, value').eq('is_public', true));
   const m = new Map((data ?? []).map((r: { key: string; value: unknown }) => [r.key, r.value]));
   const str = (k: string) => (typeof m.get(k) === 'string' && (m.get(k) as string).trim() ? (m.get(k) as string).trim() : null);
   return {
     whatsappNumber: str('whatsapp_number'), supportHours: str('support_hours'), contactEmail: str('contact_email'),
-    socialLinks: (m.get('social_links') as Record<string, string>) ?? {}, defaultCurrency: str('default_currency') ?? 'GHS',
+    socialLinks: (m.get('social_links') as Record<string, string>) ?? {}, defaultCurrency: str('default_currency') ?? 'GHS', assistantEnabled: m.get('assistant_enabled') !== false,
   };
 }
 
@@ -131,4 +131,24 @@ export async function getDeliveryCountries(): Promise<{ code: string; name: stri
   const codes = [...new Set(((data ?? []) as { country_codes: string[] }[]).flatMap((z) => (z.country_codes ?? []).map((c) => c.trim().toUpperCase())))];
   const names = new Intl.DisplayNames(['en'], { type: 'region' });
   return codes.map((code) => ({ code, name: names.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export interface ShippingSummary { name: string; countries: string[]; rates: { name: string; methodCode: string; currency: string; flatRateMinor: number; freeOverMinor: number | null; daysMin: number | null; daysMax: number | null; dutiesNote: string | null }[] }
+
+/** Active delivery zones with their rates, as customers see them at checkout. */
+export async function getShippingSummary(): Promise<ShippingSummary[]> {
+  const db = createPublic(); if (!db) return [];
+  const [z, r] = await Promise.all([
+    db.from('shipping_zones').select('id, name, country_codes').eq('is_active', true),
+    db.from('shipping_rates').select('zone_id, name, method_code, currency, flat_rate_minor, free_over_subtotal_minor, estimated_days_min, estimated_days_max, duties_note').eq('is_active', true).order('sort_order'),
+  ]);
+  const zones = ok(z) as { id: string; name: string; country_codes: string[] }[] | null, rates = ok(r) as Record<string, unknown>[] | null;
+  return (zones ?? []).map((zone) => ({
+    name: zone.name, countries: (zone.country_codes ?? []).map((c) => c.trim()),
+    rates: (rates ?? []).filter((x) => x.zone_id === zone.id).map((x) => ({
+      name: String(x.name), methodCode: String(x.method_code), currency: String(x.currency).trim(), flatRateMinor: Number(x.flat_rate_minor),
+      freeOverMinor: x.free_over_subtotal_minor == null ? null : Number(x.free_over_subtotal_minor),
+      daysMin: x.estimated_days_min as number | null, daysMax: x.estimated_days_max as number | null, dutiesNote: x.duties_note as string | null,
+    })),
+  })).filter((z) => z.rates.length > 0);
 }

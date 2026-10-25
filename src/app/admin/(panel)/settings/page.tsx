@@ -33,6 +33,12 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             <Check name="checkoutEnabled" label="Checkout is open (untick to pause orders)" defaultChecked={s.get('checkout_enabled') !== false} />
           </div>
         </Card>
+        <Card title="Shopping assistant">
+          <div className="grid gap-3">
+            <Check name="assistantEnabled" label="Show the shopping assistant on the website" defaultChecked={s.get('assistant_enabled') !== false} />
+            <Field label="AI answers per day" hint="A spending cap. After this many, the assistant keeps working with free instant answers built from your shop information."><input name="assistantDailyLimit" type="number" min="0" defaultValue={String(s.get('assistant_daily_limit') ?? 300)} className="field font-normal" /></Field>
+          </div>
+        </Card>
         <button className="btn-gold justify-self-start">Save settings</button>
       </form>
     </>

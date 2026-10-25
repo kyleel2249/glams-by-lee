@@ -80,6 +80,7 @@ export const settingsSchema = z.object({
   instagram: z.preprocess(blank, z.string().url().startsWith('https://').optional()), facebook: z.preprocess(blank, z.string().url().startsWith('https://').optional()),
   tiktok: z.preprocess(blank, z.string().url().startsWith('https://').optional()),
   taxRatePercent: z.preprocess(blank, z.coerce.number().min(0).max(100).default(0)), checkoutEnabled: checkbox,
+  assistantEnabled: checkbox, assistantDailyLimit: z.preprocess(blank, z.coerce.number().int().min(0).max(100000).default(300)),
 });
 export const announcementSchema = z.object({ enabled: checkbox, text: optText(160) });
 export const policySchema = z.object({ title: reqText(120), body: z.string().trim().min(1, 'Required').max(20000), updated: optText(40) });

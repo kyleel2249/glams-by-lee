@@ -17,6 +17,7 @@ describe('permissions', () => {
 describe('review and privacy permissions', () => {
   it('support moderates reviews; only store manager and owner handle deletions', () => {
     expect(can(['customer_support'], 'reviews.moderate')).toBe(true); expect(can(['content_editor'], 'reviews.moderate')).toBe(false); expect(can(['order_manager'], 'reviews.moderate')).toBe(false);
+    expect(can(['store_manager'], 'assistant.view')).toBe(true); expect(can(['customer_support'], 'assistant.view')).toBe(false);
     expect(can(['store_manager'], 'privacy.manage')).toBe(true); expect(can(['customer_support'], 'privacy.manage')).toBe(false); expect(can(['owner'], 'privacy.manage')).toBe(true);
   });
 });
