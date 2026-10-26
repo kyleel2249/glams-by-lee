@@ -11,13 +11,14 @@ import { createAdmin } from '@/lib/supabase/admin';
 import { getCustomer } from '@/lib/customer/auth';
 
 export const dynamic = 'force-dynamic';
-const REQUIRED = ['SUPABASE_SERVICE_ROLE_KEY', 'PAYSTACK_SECRET_KEY', 'ORDER_LINK_SECRET', 'NEXT_PUBLIC_SITE_URL'] as const;
+// Written out one by one on purpose: NEXT_PUBLIC_ values are filled in at build time, which only works for direct references like process.env.NEXT_PUBLIC_SITE_URL.
+const configured = () => Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.PAYSTACK_SECRET_KEY && process.env.ORDER_LINK_SECRET && process.env.NEXT_PUBLIC_SITE_URL);
 
 export async function POST(req: Request) {
   if (rateLimited(`checkout:${clientIp(req)}`, 10)) return NextResponse.json({ error: 'Too many attempts. Please wait a minute.' }, { status: 429 });
   const parsed = checkoutSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Please check your details.' }, { status: 400 });
-  if (REQUIRED.some((k) => !process.env[k])) return NextResponse.json({ error: 'Checkout is not available yet.' }, { status: 503 });
+  if (!configured()) return NextResponse.json({ error: 'Checkout is not available yet.' }, { status: 503 });
   const i = parsed.data;
 
   try {

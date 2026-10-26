@@ -10,7 +10,7 @@ const supabaseHost = (() => { try { return new URL(process.env.NEXT_PUBLIC_SUPAB
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  images: { formats: ['image/avif', 'image/webp'], remotePatterns: supabaseHost ? [{ protocol: 'https', hostname: supabaseHost, pathname: '/storage/v1/object/public/**' }] : [] },
+  images: { unoptimized: process.env.NEXT_IMAGES_UNOPTIMIZED === '1', formats: ['image/avif', 'image/webp'], remotePatterns: supabaseHost ? [{ protocol: 'https', hostname: supabaseHost, pathname: '/storage/v1/object/public/**' }] : [] },
   async headers() { return [{ source: '/:path*', headers: securityHeaders }]; },
 };
 export default nextConfig;

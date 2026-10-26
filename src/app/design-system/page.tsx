@@ -27,7 +27,7 @@ export default function DesignSystem() {
 
       <section aria-labelledby="colour">
         <h2 id="colour" className="text-3xl">Colour</h2>
-        <p className="mt-2 max-w-prose text-muted">Black frames navigation, promotions and the footer. Ivory and white carry product browsing. Gold marks actions and small accents. Use Deep gold (#8F6F3C) for gold text on light backgrounds so it stays readable.</p>
+        <p className="mt-2 max-w-prose text-muted">Black frames navigation, promotions and the footer. Ivory and white carry product browsing. Gold marks actions and small accents. Use Deep gold (#7A5C2B) for gold text on light backgrounds so it stays readable.</p>
         <ul className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
           {COLORS.map(([name, hex, cls]) => (
             <li key={hex} className={`${cls} p-4 text-sm`}><span className="block font-medium">{name}</span><span className="opacity-80">{hex}</span></li>

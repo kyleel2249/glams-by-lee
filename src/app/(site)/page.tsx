@@ -6,7 +6,8 @@ import { BRAND } from '@/lib/brand';
 import { getCategories, getProducts, getSettings, getShippingZoneNames, getSiteContent } from '@/lib/catalog';
 import { whatsAppLink } from '@/lib/whatsapp';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 
 interface Hero { headline?: string; subtext?: string; image_url?: string | null; primary_cta?: { label: string; href: string }; secondary_cta?: { label: string; href: string } }
 interface Care { title?: string; body?: string; href?: string }

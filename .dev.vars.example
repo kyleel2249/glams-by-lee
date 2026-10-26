@@ -1,0 +1,7 @@
+# Copy to .dev.vars for `npm run cf:preview` (local Workers runtime). Placeholders only; never commit real values.
+NEXT_PUBLIC_SITE_URL=http://localhost:8787
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
+PAYSTACK_SECRET_KEY=sk_test_YOUR_KEY
+ORDER_LINK_SECRET=GENERATE_A_LONG_RANDOM_VALUE

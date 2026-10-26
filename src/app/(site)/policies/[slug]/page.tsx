@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSiteContent } from '@/lib/catalog';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 const SLUGS = { shipping: 'Shipping policy', returns: 'Returns and refunds policy', privacy: 'Privacy policy', terms: 'Terms and conditions' } as const;
 type Slug = keyof typeof SLUGS;
 interface Policy { title?: string; body?: string; updated?: string }

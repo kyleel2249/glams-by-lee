@@ -1,7 +1,7 @@
 # GLAMS BY LEE
 
 Premium wig and hair e-commerce platform for Ghana and international customers.
-Stack: Next.js 15, TypeScript, Tailwind, Supabase (Postgres, Auth, Storage), Paystack, Vercel.
+Stack: Next.js 15, TypeScript, Tailwind, Supabase (Postgres, Auth, Storage), Paystack, Cloudflare Workers (see `docs/CLOUDFLARE.md`).
 
 ## Status: Phases 1 to 6 built (foundation, storefront, checkout and payments, admin dashboard, customer accounts, shopping assistant)
 

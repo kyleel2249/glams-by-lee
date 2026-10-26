@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { CheckoutForm } from '@/components/shop/CheckoutForm';
 import { getDeliveryCountries } from '@/lib/catalog';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Checkout', robots: { index: false, follow: false } };
 
 export default async function Checkout() {

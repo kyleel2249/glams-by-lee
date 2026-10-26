@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "glams-by-lee",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  // Product photos (next/image) are resized by Cloudflare Images. If photos ever fail to load, see docs/CLOUDFLARE.md.
+  "images": { "binding": "IMAGES" },
+  "observability": { "enabled": true },
+  "upload_source_maps": true,
+  // Keep variables you set in the Cloudflare dashboard when this file is deployed. Secrets are always kept.
+  "keep_vars": true
+}

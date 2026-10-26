@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { ShopView } from '@/components/shop/ShopView';
 import { getCategories, getProducts } from '@/lib/catalog';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {
   const { category } = await params;

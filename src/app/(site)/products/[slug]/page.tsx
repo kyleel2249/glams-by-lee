@@ -10,7 +10,8 @@ import { whatsAppLink } from '@/lib/whatsapp';
 import { WishlistButton } from '@/components/shop/WishlistButton';
 import { ReviewForm } from '@/components/shop/ReviewForm';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

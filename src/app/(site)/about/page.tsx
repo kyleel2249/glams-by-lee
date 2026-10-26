@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
 import { getSiteContent } from '@/lib/catalog';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'About', description: 'GLAMS BY LEE: premium wigs, bundles and hair essentials for Ghana and international customers.', alternates: { canonical: '/about' } };
 
 export default async function About() {

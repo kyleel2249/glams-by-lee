@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { getProducts } from '@/lib/catalog';
 import { filterOptions } from '@/lib/catalogFilters';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Find your perfect wig', description: 'Answer a few quick questions and see wigs that match your texture, length and budget.', alternates: { canonical: '/find-your-wig' } };
 
 export default async function FindYourWig() {

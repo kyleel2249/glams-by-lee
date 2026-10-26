@@ -26,7 +26,7 @@ export function paymentConfirmationEmail(o: EmailOrder): { subject: string; html
 ${line('Subtotal', o.subtotalMinor)}${o.discountMinor ? line('Discount', -o.discountMinor) : ''}${line(o.shippingMethod ? `Delivery (${esc(o.shippingMethod)})` : 'Delivery', o.shippingMinor)}${o.taxMinor ? line('Tax', o.taxMinor) : ''}${line('Total paid', o.totalMinor, true)}</table>
 <p style="margin:20px 0 4px"><strong>Delivering to</strong><br>${esc(o.deliveryTo)}</p>
 <p style="margin:24px 0"><a href="${esc(o.orderUrl)}" style="background:#B9945A;color:#171514;padding:12px 24px;text-decoration:none;display:inline-block">View your order</a></p>
-${o.whatsappUrl ? `<p style="color:#6B625C;font-size:14px">Questions? <a href="${esc(o.whatsappUrl)}" style="color:#8F6F3C">Message us on WhatsApp</a> and quote your order number.</p>` : ''}
+${o.whatsappUrl ? `<p style="color:#6B625C;font-size:14px">Questions? <a href="${esc(o.whatsappUrl)}" style="color:#7A5C2B">Message us on WhatsApp</a> and quote your order number.</p>` : ''}
 <p style="color:#6B625C;font-size:12px;margin-top:24px">This email confirms a verified payment. We will update you when your order ships. Keep this link private: anyone with it can view this order.</p>
 </td></tr></table></td></tr></table></body></html>`;
   const text = [`GLAMS BY LEE`, `Payment confirmed for order ${o.orderNumber}`, '',
@@ -45,8 +45,8 @@ export function shippedEmail(o: ShippedEmail): { subject: string; html: string; 
 <tr><td style="padding:28px"><h1 style="font-family:Georgia,serif;font-weight:normal;font-size:26px;margin:0 0 8px">Your order is on its way.</h1><p style="margin:0 0 20px;color:#6B625C">Order ${esc(o.orderNumber)}</p>
 <p><strong>${esc(o.carrier)}</strong><br>Tracking number: ${esc(o.trackingNumber)}</p>
 ${o.trackingUrl ? `<p><a href="${esc(o.trackingUrl)}" style="background:#B9945A;color:#171514;padding:12px 24px;text-decoration:none;display:inline-block">Track your parcel</a></p>` : ''}
-<p><a href="${esc(o.orderUrl)}" style="color:#8F6F3C">View your order</a></p>
-${o.whatsappUrl ? `<p style="color:#6B625C;font-size:14px">Questions? <a href="${esc(o.whatsappUrl)}" style="color:#8F6F3C">Message us on WhatsApp</a>.</p>` : ''}</td></tr></table></td></tr></table></body></html>`;
+<p><a href="${esc(o.orderUrl)}" style="color:#7A5C2B">View your order</a></p>
+${o.whatsappUrl ? `<p style="color:#6B625C;font-size:14px">Questions? <a href="${esc(o.whatsappUrl)}" style="color:#7A5C2B">Message us on WhatsApp</a>.</p>` : ''}</td></tr></table></td></tr></table></body></html>`;
   const text = [`GLAMS BY LEE`, `Order ${o.orderNumber} is on its way.`, `${o.carrier}: ${o.trackingNumber}`, ...(o.trackingUrl ? [`Track: ${o.trackingUrl}`] : []), `Your order: ${o.orderUrl}`].join('\n');
   return { subject, html, text };
 }

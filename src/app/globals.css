@@ -9,7 +9,7 @@
   html { background: #F6F0E8; color: #171514; -webkit-text-size-adjust: 100%; }
   body { font-family: 'Inter Variable', Inter, system-ui, sans-serif; line-height: 1.6; }
   h1, h2, h3 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; line-height: 1.1; }
-  :focus-visible { outline: 2px solid #8F6F3C; outline-offset: 3px; }
+  :focus-visible { outline: 2px solid #7A5C2B; outline-offset: 3px; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 }
 

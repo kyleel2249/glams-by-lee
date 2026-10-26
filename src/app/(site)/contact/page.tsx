@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { getSettings } from '@/lib/catalog';
 import { whatsAppLink } from '@/lib/whatsapp';
 
-export const revalidate = 300;
+// Rendered per request: Cloudflare Workers has no shared page cache unless KV/R2 is configured, and shop data must never be stale.
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Contact', description: 'Contact GLAMS BY LEE on WhatsApp or email.', alternates: { canonical: '/contact' } };
 
 export default async function Contact() {
